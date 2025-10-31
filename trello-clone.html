@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trello Clone</title>
+    <!-- React, ReactDOM, and Babel from CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Tailwind CSS from CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Utility function to generate unique IDs
+        const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        // Board Management Item Component
+        function BoardManagementItem({ board, currentBoardId, totalBoards, onSelect, onRename, onDelete }) {
+            const [isEditing, setIsEditing] = useState(false);
+            const [editName, setEditName] = useState(board.name);
+
+            const handleSave = () => {
+                if (editName.trim() && editName !== board.name) {
+                    onRename(editName.trim());
+                }
+                setIsEditing(false);
+                setEditName(board.name);
+            };
+
+            const handleCancel = () => {
+                setIsEditing(false);
+                setEditName(board.name);
+            };
+
+            const handleKeyDown = (e) => {
+                if (e.key === 'Enter') {
+                    handleSave();
+                } else if (e.key === 'Escape') {
+                    handleCancel();
+                }
+            };
+
+            return (
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '12px',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '6px',
+                    marginBottom: '8px',
+                    backgroundColor: board.id === currentBoardId ? '#f0f9ff' : 'white'
+                }}>
+                    <div style={{flex: 1}}>
+                        {isEditing ? (
+                            <input
+                                type="text"
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                onKeyDown={handleKeyDown}
+                                onBlur={handleSave}
+                                autoFocus
+                                style={{
+                                    width: '100%',
+                                    padding: '4px 8px',
+                                    border: '1px solid #3b82f6',
+                                    borderRadius: '4px',
+                                    fontSize: '14px'
+                                }}
+                            />
+                        ) : (
+                            <span
+                                onClick={onSelect}
+                                style={{
+                                    cursor: 'pointer',
+                                    fontWeight: board.id === currentBoardId ? 600 : 500,
+                                    color: '#1f2937',
+                                    fontSize: '14px'
+                                }}
+                            >
+                                {board.name}
+                                {board.id === currentBoardId && ' (Current)'}
+                            </span>
+                        )}
+                    </div>
+                    <div style={{display: 'flex', gap: '8px'}}>
+                        {isEditing ? (
+                            <>
+                                <button
+                                    onClick={handleSave}
+                                    style={{
+                                        padding: '4px 8px',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        fontSize: '12px',
+                                        cursor: 'pointer',
+                                        backgroundColor: '#10b981',
+                                        color: 'white'
+                                    }}
+                                >
+                                    Save
+                                </button>
+                                <button
+                                    onClick={handleCancel}
+                                    style={{
+                                        padding: '4px 8px',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        fontSize: '12px',
+                                        cursor: 'pointer',
+                                        backgroundColor: '#6b7280',
+                                        color: 'white'
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <button
+                                    onClick={() => {
+                                        setIsEditing(true);
+                                        setEditName(board.name);
+                                    }}
+                                    style={{
+                                        padding: '4px 8px',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        fontSize: '12px',
+                                        cursor: 'pointer',
+                                        backgroundColor: '#3b82f6',
+                                        color: 'white'
+                                    }}
+                                >
+                                    Rename
+                                </button>
+                                {totalBoards > 1 && (
+                                    <button
+                                        onClick={onDelete}
+                                        style={{
+                                            padding: '4px 8px',
+                                            border: 'none',
+                                            borderRadius: '4px',
+                                            fontSize: '12px',
+                                            cursor: 'pointer',
+                                            backgroundColor: '#ef4444',
+                                            color: 'white'
+                                        }}
+                                    >
+                                        Delete
+                                    </button>
+                                )}
+                            </>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // Create Board Form Component
+        function CreateBoardForm({ onCreateBoard }) {
+            const [newBoardName, setNewBoardName] = useState('');
+            const [isCreating, setIsCreating] = useState(false);
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (newBoardName.trim()) {
+                    onCreateBoard(newBoardName.trim());
+                    setNewBoardName('');
+                    setIsCreating(false);
+                }
+            };
+
+            const handleKeyDown = (e) => {
+                if (e.key === 'Enter') {
+                    handleSubmit(e);
+                } else if (e.key === 'Escape') {
+                    setIsCreating(false);
+                    setNewBoardName('');
+                }
+            };
+
+            if (!isCreating) {
+                return (
+                    <button
+                        onClick={() => setIsCreating(true)}
+                        style={{
+                            width: '100%',
+                            padding: '12px',
+                            border: '2px dashed #d1d5db',
+                            borderRadius: '6px',
+                            backgroundColor: '#f9fafb',
+                            color: '#6b7280',
+                            fontSize: '14px',
+                            cursor: 'pointer',
+                            fontWeight: 500
+                        }}
+                    >
+                        + Add New Board
+                    </button>
+                );
+            }
+
+            return (
+                <div style={{
+                    padding: '12px',
+                    border: '1px solid #3b82f6',
+                    borderRadius: '6px',
+                    backgroundColor: '#f0f9ff'
+                }}>
+                    <input
+                        type="text"
+                        value={newBoardName}
+                        onChange={(e) => setNewBoardName(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Enter board name..."
+                        autoFocus
+                        style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '6px',
+                            fontSize: '14px',
+                            marginBottom: '8px'
+                        }}
+                    />
+                    <div style={{display: 'flex', gap: '8px'}}>
+                        <button
+                            onClick={handleSubmit}
+                            style={{
+                                padding: '6px 12px',
+                                border: 'none',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                                backgroundColor: '#10b981',
+                                color: 'white',
+                                fontWeight: 500
+                            }}
+                        >
+                            Create Board
+                        </button>
+                        <button
+                            onClick={() => {
+                                setIsCreating(false);
+                                setNewBoardName('');
+                            }}
+                            style={{
+                                padding: '6px 12px',
+                                border: 'none',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                                backgroundColor: '#6b7280',
+                                color: 'white',
+                                fontWeight: 500
+                            }}
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        // Simple Trello Clone App
+        function App() {
+            const defaultState = {
+                projects: [
+                    {
+                        id: 'project-1',
+                        name: 'My First Project',
+                        boards: [
+                            {
+                                id: 'board-1',
+                                name: 'Main Board',
+                                lists: [
+                                    {
+                                        id: 'list-1',
+                                        title: 'To Do',
+                                        cards: []
+                                    },
+                                    {
+                                        id: 'list-2',
+                                        title: 'In Progress',
+                                        cards: []
+                                    },
+                                    {
+                                        id: 'list-3',
+                                        title: 'Done',
+                                        cards: []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ],
+                currentProject: 'project-1',
+                currentBoard: 'board-1'
+            };
+
+            const [appState, setAppState] = useState(defaultState);
+            const [isAddingList, setIsAddingList] = useState(false);
+            const [currentView, setCurrentView] = useState('board-view');
+            const [showBoardManagement, setShowBoardManagement] = useState(false);
+            const [showProjectManagement, setShowProjectManagement] = useState(false);
+
+            // Helper functions to get current data
+            const getCurrentProject = () => {
+                return appState.projects.find(p => p.id === appState.currentProject);
+            };
+
+            const getCurrentBoard = () => {
+                const project = getCurrentProject();
+                return project ? project.boards.find(b => b.id === appState.currentBoard) : null;
+            };
+
+            const getCurrentLists = () => {
+                const board = getCurrentBoard();
+                return board ? board.lists : [];
+            };
+
+            // Card Component
+            function Card({ card, onDeleteCard }) {
+                const handleCardClick = () => {
+                    alert(`Card: ${card.title}`);
+                };
+
+                const formatDate = (dateString) => {
+                    const date = new Date(dateString);
+                    return date.toLocaleString();
+                };
+
+                return (
+                    <div className="card" onClick={handleCardClick}>
+                        <div className="card-title">{card.title}</div>
+                        <div className="card-timestamp">{formatDate(card.lastModified)}</div>
+                        <button
+                            className="delete-btn"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteCard(card.id);
+                            }}
+                            title="Delete card"
+                        >
+                            ×
+                        </button>
+                    </div>
+                );
+            }
+
+            // AddCardForm Component
+            function AddCardForm({ onAddCard, onCancel }) {
+                const [cardTitle, setCardTitle] = useState('');
+
+                const handleSubmit = (e) => {
+                    e.preventDefault();
+                    if (cardTitle.trim()) {
+                        onAddCard(cardTitle.trim());
+                        setCardTitle('');
+                    }
+                };
+
+                return (
+                    <div className="add-card-form">
+                        <textarea
+                            className="add-card-input"
+                            value={cardTitle}
+                            onChange={(e) => setCardTitle(e.target.value)}
+                            placeholder="Enter a title for this card..."
+                            autoFocus
+                        />
+                        <div className="add-card-buttons">
+                            <button className="add-card-btn" onClick={handleSubmit}>
+                                Add card
+                            </button>
+                            <button className="cancel-btn" onClick={onCancel}>
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            // List Component
+            function List({ list, onAddCard, onDeleteCard, onDeleteList, onRenameList }) {
+                const [isAddingCard, setIsAddingCard] = useState(false);
+                const [isEditingTitle, setIsEditingTitle] = useState(false);
+                const [editedTitle, setEditedTitle] = useState(list.title);
+
+                const handleAddCard = (title) => {
+                    onAddCard(list.id, title);
+                    setIsAddingCard(false);
+                };
+
+                const handleCancelAdd = () => {
+                    setIsAddingCard(false);
+                };
+
+                const handleTitleClick = () => {
+                    setIsEditingTitle(true);
+                    setEditedTitle(list.title);
+                };
+
+                const handleTitleChange = (e) => {
+                    setEditedTitle(e.target.value);
+                };
+
+                const handleTitleKeyDown = (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (editedTitle.trim()) {
+                            onRenameList(list.id, editedTitle.trim());
+                            setIsEditingTitle(false);
+                        }
+                    } else if (e.key === 'Escape') {
+                        setIsEditingTitle(false);
+                        setEditedTitle(list.title);
+                    }
+                };
+
+                return (
+                    <div className="list">
+                        <div className="list-header">
+                            {isEditingTitle ? (
+                                <input
+                                    type="text"
+                                    className="list-title-input-edit"
+                                    value={editedTitle}
+                                    onChange={handleTitleChange}
+                                    onKeyDown={handleTitleKeyDown}
+                                    onBlur={() => {
+                                        if (editedTitle.trim() && editedTitle !== list.title) {
+                                            onRenameList(list.id, editedTitle.trim());
+                                        }
+                                        setIsEditingTitle(false);
+                                    }}
+                                    autoFocus
+                                />
+                            ) : (
+                                <div className="list-title" onClick={handleTitleClick}>
+                                    {list.title}
+                                </div>
+                            )}
+                            <button
+                                className="delete-list-btn"
+                                onClick={() => onDeleteList(list.id)}
+                                title="Delete list"
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        <div>
+                            {list.cards.map((card, index) => (
+                                <Card
+                                    key={card.id}
+                                    card={card}
+                                    onDeleteCard={(cardId) => onDeleteCard(list.id, cardId)}
+                                />
+                            ))}
+                        </div>
+
+                        {/* Add Card Section */}
+                        {isAddingCard ? (
+                            <AddCardForm
+                                onAddCard={handleAddCard}
+                                onCancel={handleCancelAdd}
+                            />
+                        ) : (
+                            <button
+                                className="add-card-trigger"
+                                onClick={() => setIsAddingCard(true)}
+                            >
+                                + Add a card
+                            </button>
+                        )}
+                    </div>
+                );
+            }
+
+            // App Functions
+            const addCard = (listId, cardTitle) => {
+                const timestamp = new Date().toISOString();
+                const newCard = {
+                    id: generateId(),
+                    title: cardTitle,
+                    description: '',
+                    lastModified: timestamp,
+                    history: [{
+                        timestamp: timestamp,
+                        list: getCurrentLists().find(list => list.id === listId)?.title || 'Unknown List',
+                        change: 'Card created'
+                    }]
+                };
+
+                setAppState(prevState => ({
+                    ...prevState,
+                    projects: prevState.projects.map(project =>
+                        project.id === appState.currentProject
+                            ? {
+                                ...project,
+                                boards: project.boards.map(board =>
+                                    board.id === appState.currentBoard
+                                        ? {
+                                            ...board,
+                                            lists: board.lists.map(list =>
+                                                list.id === listId
+                                                    ? { ...list, cards: [...list.cards, newCard] }
+                                                    : list
+                                            )
+                                        }
+                                        : board
+                                )
+                            }
+                            : project
+                    )
+                }));
+            };
+
+            const deleteCard = (listId, cardId) => {
+                setAppState(prevState => ({
+                    ...prevState,
+                    projects: prevState.projects.map(project =>
+                        project.id === appState.currentProject
+                            ? {
+                                ...project,
+                                boards: project.boards.map(board =>
+                                    board.id === appState.currentBoard
+                                        ? {
+                                            ...board,
+                                            lists: board.lists.map(list =>
+                                                list.id === listId
+                                                    ? { ...list, cards: list.cards.filter(card => card.id !== cardId) }
+                                                    : list
+                                            )
+                                        }
+                                        : board
+                                )
+                            }
+                            : project
+                    )
+                }));
+            };
+
+            const addList = (listTitle) => {
+                const newList = {
+                    id: generateId(),
+                    title: listTitle,
+                    cards: []
+                };
+
+                setAppState(prevState => ({
+                    ...prevState,
+                    projects: prevState.projects.map(project =>
+                        project.id === appState.currentProject
+                            ? {
+                                ...project,
+                                boards: project.boards.map(board =>
+                                    board.id === appState.currentBoard
+                                        ? {
+                                            ...board,
+                                            lists: [...board.lists, newList]
+                                        }
+                                        : board
+                                )
+                            }
+                            : project
+                    )
+                }));
+                setIsAddingList(false);
+            };
+
+            const deleteList = (listId) => {
+                if (confirm('Are you sure you want to delete this list and all its cards?')) {
+                    setAppState(prevState => ({
+                        ...prevState,
+                        projects: prevState.projects.map(project =>
+                            project.id === appState.currentProject
+                                ? {
+                                    ...project,
+                                    boards: project.boards.map(board =>
+                                        board.id === appState.currentBoard
+                                            ? {
+                                                ...board,
+                                                lists: board.lists.filter(list => list.id !== listId)
+                                            }
+                                            : board
+                                    )
+                                }
+                                : project
+                        )
+                    }));
+                }
+            };
+
+            const renameList = (listId, newTitle) => {
+                setAppState(prevState => ({
+                    ...prevState,
+                    projects: prevState.projects.map(project =>
+                        project.id === appState.currentProject
+                            ? {
+                                ...project,
+                                boards: project.boards.map(board =>
+                                    board.id === appState.currentBoard
+                                        ? {
+                                            ...board,
+                                            lists: board.lists.map(list =>
+                                                list.id === listId
+                                                    ? { ...list, title: newTitle }
+                                                    : list
+                                            )
+                                        }
+                                        : board
+                                )
+                            }
+                            : project
+                    )
+                }));
+            };
+
+            const handleAddList = (title) => {
+                addList(title);
+                setIsAddingList(false);
+            };
+
+            // Board Management Functions
+            const handleProjectClick = () => {
+                setShowBoardManagement(true);
+            };
+
+            const handleCreateBoard = (boardName) => {
+                const newBoard = {
+                    id: generateId(),
+                    name: boardName,
+                    lists: [
+                        {
+                            id: generateId(),
+                            title: 'To Do',
+                            cards: []
+                        },
+                        {
+                            id: generateId(),
+                            title: 'In Progress',
+                            cards: []
+                        },
+                        {
+                            id: generateId(),
+                            title: 'Done',
+                            cards: []
+                        }
+                    ]
+                };
+
+                setAppState(prevState => ({
+                    ...prevState,
+                    projects: prevState.projects.map(project =>
+                        project.id === appState.currentProject
+                            ? { ...project, boards: [...project.boards, newBoard] }
+                            : project
+                    )
+                }));
+            };
+
+            const handleDeleteBoard = (boardId) => {
+                if (confirm('Are you sure you want to delete this board?')) {
+                    setAppState(prevState => ({
+                        ...prevState,
+                        projects: prevState.projects.map(project =>
+                            project.id === appState.currentProject
+                                ? { ...project, boards: project.boards.filter(board => board.id !== boardId) }
+                                : project
+                        )
+                    }));
+
+                    // If we deleted the current board, switch to the first available board
+                    if (boardId === appState.currentBoard) {
+                        const currentProject = getCurrentProject();
+                        const remainingBoards = currentProject.boards.filter(board => board.id !== boardId);
+                        if (remainingBoards.length > 0) {
+                            setAppState(prevState => ({
+                                ...prevState,
+                                currentBoard: remainingBoards[0].id
+                            }));
+                        }
+                    }
+                }
+            };
+
+            const handleRenameBoard = (boardId, newName) => {
+                setAppState(prevState => ({
+                    ...prevState,
+                    projects: prevState.projects.map(project =>
+                        project.id === appState.currentProject
+                            ? {
+                                ...project,
+                                boards: project.boards.map(board =>
+                                    board.id === boardId
+                                        ? { ...board, name: newName }
+                                        : board
+                                )
+                            }
+                            : project
+                    )
+                }));
+            };
+
+            const handleBoardSelect = (boardId) => {
+                setAppState(prevState => ({
+                    ...prevState,
+                    currentBoard: boardId
+                }));
+                setShowBoardManagement(false);
+            };
+
+            // Project Management Functions
+            const handleProjectManagementClick = () => {
+                setShowProjectManagement(true);
+            };
+
+            const handleCreateProject = (projectName) => {
+                const newProject = {
+                    id: generateId(),
+                    name: projectName,
+                    boards: [
+                        {
+                            id: generateId(),
+                            name: 'Main Board',
+                            lists: [
+                                {
+                                    id: generateId(),
+                                    title: 'To Do',
+                                    cards: []
+                                },
+                                {
+                                    id: generateId(),
+                                    title: 'In Progress',
+                                    cards: []
+                                },
+                                {
+                                    id: generateId(),
+                                    title: 'Done',
+                                    cards: []
+                                }
+                            ]
+                        }
+                    ]
+                };
+
+                setAppState(prevState => ({
+                    ...prevState,
+                    projects: [...prevState.projects, newProject],
+                    currentProject: newProject.id,
+                    currentBoard: newProject.boards[0].id
+                }));
+            };
+
+            const handleDeleteProject = (projectId) => {
+                if (appState.projects.length <= 1) {
+                    alert('Cannot delete the last project.');
+                    return;
+                }
+
+                if (confirm('Are you sure you want to delete this project and all its boards?')) {
+                    const newProjects = appState.projects.filter(p => p.id !== projectId);
+                    let newCurrentProject = appState.currentProject;
+                    let newCurrentBoard = appState.currentBoard;
+
+                    // If we deleted the current project, switch to another one
+                    if (projectId === appState.currentProject) {
+                        const fallbackProject = newProjects[0];
+                        newCurrentProject = fallbackProject.id;
+                        newCurrentBoard = fallbackProject.boards[0].id;
+                    }
+
+                    setAppState({
+                        ...appState,
+                        projects: newProjects,
+                        currentProject: newCurrentProject,
+                        currentBoard: newCurrentBoard
+                    });
+                }
+            };
+
+            const handleRenameProject = (projectId, newName) => {
+                setAppState(prevState => ({
+                    ...prevState,
+                    projects: prevState.projects.map(project =>
+                        project.id === projectId
+                            ? { ...project, name: newName }
+                            : project
+                    )
+                }));
+            };
+
+            const handleProjectSelect = (projectId) => {
+                const project = appState.projects.find(p => p.id === projectId);
+                if (project && project.boards.length > 0) {
+                    setAppState(prevState => ({
+                        ...prevState,
+                        currentProject: projectId,
+                        currentBoard: project.boards[0].id
+                    }));
+                }
+                setShowProjectManagement(false);
+            };
+
+            const currentProject = getCurrentProject();
+            const currentBoard = getCurrentBoard();
+            const currentLists = getCurrentLists();
+
+            return (
+                <div className="bg-gray-100 min-h-screen">
+                    {/* App Header */}
+                    <header className="app-header">
+                        <div className="app-title">Trello Clone</div>
+                        <div className="nav-section">
+                            <div className="breadcrumb">
+                                <span
+                                    className="breadcrumb-item breadcrumb-project"
+                                    onClick={handleProjectClick}
+                                    style={{cursor: 'pointer'}}
+                                >
+                                    {currentProject?.name || 'Unknown Project'}
+                                </span>
+                                <span className="breadcrumb-separator">›</span>
+                                <span className="breadcrumb-item">{currentBoard?.name || 'Unknown Board'}</span>
+                            </div>
+                            <button
+                                className="add-button"
+                                onClick={handleProjectManagementClick}
+                                style={{marginLeft: '20px'}}
+                            >
+                                Manage Projects
+                            </button>
+                        </div>
+                    </header>
+
+                    {/* Board Content */}
+                    <div className="board-container">
+                        <div className="board-content">
+                            {currentLists.map((list, index) => (
+                                <List
+                                    key={list.id}
+                                    list={list}
+                                    index={index}
+                                    onAddCard={addCard}
+                                    onDeleteCard={deleteCard}
+                                    onDeleteList={deleteList}
+                                    onRenameList={renameList}
+                                />
+                            ))}
+                            {/* Add List Section */}
+                            {isAddingList ? (
+                                <AddListForm
+                                    onAddList={handleAddList}
+                                    onCancel={() => setIsAddingList(false)}
+                                />
+                            ) : (
+                                <div
+                                    className="add-list"
+                                    onClick={() => setIsAddingList(true)}
+                                >
+                                    + Add another list
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Board Management Modal */}
+                    {showBoardManagement && (
+                        <div className="management-modal" onClick={() => setShowBoardManagement(false)}>
+                            <div className="management-modal-content" onClick={(e) => e.stopPropagation()}>
+                                <div className="management-modal-header">
+                                    <div className="management-modal-title">Manage Boards</div>
+                                    <button className="modal-close" onClick={() => setShowBoardManagement(false)}>
+                                        ×
+                                    </button>
+                                </div>
+                                <div className="management-modal-body">
+                                    <h4 style={{marginBottom: '12px'}}>Boards in {currentProject?.name}:</h4>
+                                    {currentProject?.boards.map(board => (
+                                        <div key={board.id} className="management-item">
+                                            <span className="management-item-name">
+                                                {board.name}
+                                                {board.id === appState.currentBoard && ' (Current)'}
+                                            </span>
+                                            <div className="management-item-actions">
+                                                <button
+                                                    className="action-button edit-button"
+                                                    onClick={() => {
+                                                        const newName = prompt('Enter new board name:', board.name);
+                                                        if (newName && newName.trim()) {
+                                                            handleRenameBoard(board.id, newName.trim());
+                                                        }
+                                                    }}
+                                                >
+                                                    Rename
+                                                </button>
+                                                {currentProject?.boards.length > 1 && (
+                                                    <button
+                                                        className="action-button delete-button"
+                                                        onClick={() => {
+                                                            if (confirm(`Delete board "${board.name}"?`)) {
+                                                                handleDeleteBoard(board.id);
+                                                            }
+                                                        }}
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <div className="add-form">
+                                        <input
+                                            type="text"
+                                            className="add-form-input"
+                                            placeholder="New board name..."
+                                            id="newBoardInput"
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    const input = document.getElementById('newBoardInput');
+                                                    if (input.value.trim()) {
+                                                        handleCreateBoard(input.value.trim());
+                                                        input.value = '';
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                        <div className="add-form-buttons">
+                                            <button
+                                                className="add-card-btn"
+                                                onClick={() => {
+                                                    const input = document.getElementById('newBoardInput');
+                                                    if (input.value.trim()) {
+                                                        handleCreateBoard(input.value.trim());
+                                                        input.value = '';
+                                                    }
+                                                }}
+                                            >
+                                                Add Board
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Project Management Modal */}
+                    {showProjectManagement && (
+                        <div className="management-modal" onClick={() => setShowProjectManagement(false)}>
+                            <div className="management-modal-content" onClick={(e) => e.stopPropagation()}>
+                                <div className="management-modal-header">
+                                    <div className="management-modal-title">Manage Projects</div>
+                                    <button className="modal-close" onClick={() => setShowProjectManagement(false)}>
+                                        ×
+                                    </button>
+                                </div>
+                                <div className="management-modal-body">
+                                    <h4 style={{marginBottom: '12px'}}>All Projects:</h4>
+                                    {appState.projects.map(project => (
+                                        <div key={project.id} className="management-item">
+                                            <span className="management-item-name">
+                                                {project.name}
+                                                {project.id === appState.currentProject && ' (Current)'}
+                                            </span>
+                                            <div className="management-item-actions">
+                                                <button
+                                                    className="action-button edit-button"
+                                                    onClick={() => {
+                                                        const newName = prompt('Enter new project name:', project.name);
+                                                        if (newName && newName.trim()) {
+                                                            handleRenameProject(project.id, newName.trim());
+                                                        }
+                                                    }}
+                                                >
+                                                    Rename
+                                                </button>
+                                                {appState.projects.length > 1 && (
+                                                    <button
+                                                        className="action-button delete-button"
+                                                        onClick={() => {
+                                                            if (confirm(`Delete project "${project.name}" and all its boards?`)) {
+                                                                handleDeleteProject(project.id);
+                                                            }
+                                                        }}
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <div className="add-form">
+                                        <input
+                                            type="text"
+                                            className="add-form-input"
+                                            placeholder="New project name..."
+                                            id="newProjectInput"
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    const input = document.getElementById('newProjectInput');
+                                                    if (input.value.trim()) {
+                                                        handleCreateProject(input.value.trim());
+                                                        input.value = '';
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                        <div className="add-form-buttons">
+                                            <button
+                                                className="add-card-btn"
+                                                onClick={() => {
+                                                    const input = document.getElementById('newProjectInput');
+                                                    if (input.value.trim()) {
+                                                        handleCreateProject(input.value.trim());
+                                                        input.value = '';
+                                                    }
+                                                }}
+                                            >
+                                                Add Project
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // AddListForm Component (moved up to be used in both places)
+        function AddListForm({ onAddList, onCancel }) {
+            const [listTitle, setListTitle] = useState('');
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (listTitle.trim()) {
+                    onAddList(listTitle.trim());
+                    setListTitle('');
+                }
+            };
+
+            const handleKeyDown = (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleSubmit(e);
+                } else if (e.key === 'Escape') {
+                    onCancel();
+                }
+            };
+
+            return (
+                <div className="add-list-form">
+                    <input
+                        type="text"
+                        className="list-title-input"
+                        value={listTitle}
+                        onChange={(e) => setListTitle(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Enter list title..."
+                        autoFocus
+                    />
+                    <div className="add-card-buttons">
+                        <button className="add-card-btn" onClick={handleSubmit}>
+                            Add list
+                        </button>
+                        <button className="cancel-btn" onClick={onCancel}>
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
